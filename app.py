@@ -22,7 +22,12 @@ def query_rfp(request: RFPRequest):
         graph = build_graph()
 
         # Invoke the graph
-        response = graph.invoke({"user_query": request.user_query})
+        response = graph.invoke(
+            {
+                "user_query": request.user_query,
+                "metadata": request.metadata.model_dump(),
+            }
+        )
 
         # Build output with defaults
         output = RFPResponse(

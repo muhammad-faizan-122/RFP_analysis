@@ -3,13 +3,13 @@ from langchain_core.runnables import RunnableLambda, RunnableParallel
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.documents import Document
 from operator import itemgetter
-from typing import List
 from src.common import config
 from src.common.logger import log
 from dotenv import load_dotenv
 from src.common.utils import measure_time
 from abc import ABC, abstractmethod
 from langchain_core.messages import AIMessage, HumanMessage
+from typing import Dict, Any
 
 load_dotenv()
 
@@ -33,17 +33,75 @@ class LcGeneration(Generation):
 
         super().__init__()
 
-    def format_retrieved_document(self, docs: List[Document]) -> str:
-        log.debug(f"--- Inspecting Retrieved Documents ---: {docs}")
-        formatted_context = ""
+    def is_any_metadata_match(
+        self,
+        doc_metadata: Dict[str, Any],
+        filter_metadata: Dict[str, Any],
+    ) -> bool:
+        for key, value in filter_metadata.items():
+            if key in doc_metadata and doc_metadata[key] == value:
+                return True
+        return False
 
-        for i, doc in enumerate(docs):
-            formatted_context += f"Document-{i+1}:\n{doc.page_content}\n\n"
+    def is_any_metadata_filter_exists(self, filter_metadata: Dict[str, Any]) -> bool:
+        """check if any metadata filter exists"""
+        if not filter_metadata:
+            return False
 
-        log.debug(
-            f"Updated Document after merging metadata: {formatted_context[:500]}..."
-        )
-        return {"formatted_context": formatted_context, "source_documents": docs}
+        for v in filter_metadata.values():
+            if v:
+                return True
+        return False
+
+    def format_retrieved_document(
+        self, inputs: Dict[str, Any], fallback_docs: int = 2
+    ) -> str:
+        try:
+            docs = inputs["docs"]
+            if not docs:
+                log.warning("No documents retrieved.")
+                return {"formatted_context": "", "source_documents": []}
+
+            metadata_filters = inputs["metadata"]
+
+            log.debug(
+                f"--- Raw Docs Retrieved: {len(docs)} - first doc value: {docs[0]}---"
+            )
+            log.debug(
+                f"--- Applying Filters: type: {type(metadata_filters)} - value: {metadata_filters} ---"
+            )
+
+            formatted_context = ""
+            filter_context = []
+            is_filter_exists = self.is_any_metadata_filter_exists(metadata_filters)
+            for i, doc in enumerate(docs):
+                # check if either metadata matches or no filter exists
+                if (
+                    self.is_any_metadata_match(doc.metadata, metadata_filters)
+                    or not is_filter_exists
+                ):
+                    formatted_context += f"Document-{i+1}:\n{doc.page_content}\n\n"
+                    filter_context.append(doc)
+
+            # fallback case: if no documents matched, return top 2 docs
+            if not formatted_context:
+                log.warning("No documents matched the metadata filters.")
+                if len(docs) < fallback_docs:
+                    fallback_docs = len(docs)
+                filter_context = docs[:fallback_docs]
+                for i, doc in enumerate(docs[:fallback_docs]):
+                    formatted_context += f"Document-{i+1}:\n{doc.page_content}\n\n"
+
+            log.debug(f"Updated Document after merging metadata:\n{formatted_context}")
+            return {
+                "formatted_context": formatted_context,
+                "source_documents": filter_context,
+            }
+
+        except Exception as e:
+            msg = f"Failed to format retrieved documents: {e}"
+            log.error(msg)
+            raise ValueError(msg)
 
     def _log_final_prompt(self, prompt: ChatPromptTemplate):
         """
@@ -108,7 +166,7 @@ class LcGeneration(Generation):
             log.error(msg)
             raise ValueError(msg)
 
-    def generate_response(self, query, retriever) -> str:
+    def generate_response(self, query: str, retriever, metadata: dict) -> str:
         """
         Creates and returns the main RAG chain. This chain:
         1. Retrieves documents.
@@ -126,11 +184,12 @@ class LcGeneration(Generation):
         """
 
         with measure_time("retrieve relevant documents", log):
-            retrieval_branch = (
-                itemgetter("input")
-                | retriever
-                | RunnableLambda(self.format_retrieved_document)
-            )
+            retrieval_branch = RunnableParallel(
+                docs=itemgetter("input") | retriever,
+                metadata=itemgetter("metadata"),
+            ) | RunnableLambda(
+                self.format_retrieved_document
+            )  # 3. Receive dict with both
 
         with measure_time("Augment & Generation Chain initialization", log):
             rag_chain = RunnableParallel(
@@ -154,7 +213,7 @@ class LcGeneration(Generation):
             "RAG chain with document formatting and prompt inspection created successfully."
         )
         with measure_time("RAG answer generation", log):
-            response = rag_chain.invoke({"input": query})
+            response = rag_chain.invoke({"input": query, "metadata": metadata})
         response = self.validate_and_process_rag_response(response)
         return (
             response

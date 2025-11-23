@@ -3,9 +3,9 @@ from typing_extensions import TypedDict
 
 
 class MetadataSchema(TypedDict):
-    company_name: str
-    organization_name: str
-    file_name: str
+    file_name: Optional[str] = ""
+    company: Optional[str] = ""
+    project: Optional[str] = ""
 
 
 class RFPInputState(TypedDict):
@@ -16,7 +16,7 @@ class RFPInputState(TypedDict):
     """
 
     user_query: str
-    metadata: Optional[MetadataSchema]
+    metadata: MetadataSchema
 
 
 class RFPOutputState(TypedDict):

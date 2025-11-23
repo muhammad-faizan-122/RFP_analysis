@@ -29,7 +29,9 @@ def rag_search(state: RFPInputState) -> RFPOutputState:
         if not state["user_query"]:
             return {"messages": [AIMessage(content="Please provide a valid question.")]}
 
-        rag_response = rfp_rag.get_response(query=state["user_query"])
+        rag_response = rfp_rag.get_response(
+            query=state["user_query"], metadata=state.get("metadata", {})
+        )
         log.debug("rag_response: ", rag_response)
         return {
             "answer": rag_response["answer"],
@@ -83,7 +85,6 @@ def build_graph():
         rfp_graph = StateGraph(RFPInputState, output_schema=RFPOutputState)
 
         # Add nodes to the graph
-
         rfp_graph.add_node(rag_search)
         rfp_graph.add_node(general_response)
 
