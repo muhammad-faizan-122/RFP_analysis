@@ -2,10 +2,14 @@ from pydantic import BaseModel, Field
 from langchain_core.messages import HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 from src.indexing import prompt
+from dotenv import load_dotenv
 import re
 import pymupdf4llm
 import strip_markdown
 import json
+
+
+load_dotenv()
 
 
 class RFPMetadata(BaseModel):

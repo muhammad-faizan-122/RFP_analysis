@@ -85,6 +85,7 @@ def ingest_data():
             persist_directory=configs.DB_PERSIST_DIRECTORY,
         )
         log.info("Data ingestion completed successfully.")
+        return len(documents)
     except Exception as e:
         log.error(f"Data ingestion failed: {e}")
         raise e

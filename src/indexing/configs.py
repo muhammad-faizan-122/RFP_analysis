@@ -4,7 +4,7 @@ CHUNK_OVERLAP = 100
 SEPARATORS = ["#", "##", "###", "####", "####", "\n\n", "\n", " ", ""]
 
 # Data
-DATA_DIR = "../data/"
+DATA_DIR = "data/"
 
 # vector DB
 DB_PERSIST_DIRECTORY = "./chroma_db"
