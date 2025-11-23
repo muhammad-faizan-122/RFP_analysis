@@ -9,11 +9,7 @@ class RFPRequest(BaseModel):
 
 
 class RFPResponse(BaseModel):
+    user_query: str = ""
     answer: str = ""
     reasoning: str = ""
     extracted_requirements: List = []
-
-
-class IngestResponse(BaseModel):
-    message: str
-    total_chunks: int

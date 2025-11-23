@@ -1,8 +1,9 @@
-from src.common.models import RFPRequest, RFPResponse, IngestResponse
+from src.rag.models import RFPRequest, RFPResponse
+from src.indexing.model import IngestResponse
 from fastapi import FastAPI, HTTPException
 import uvicorn
 import logging
-
+from src.eval.models import RFPResponseSchema
 
 app = FastAPI(title="RFP RAG API")
 logger = logging.getLogger("uvicorn.error")
@@ -25,6 +26,7 @@ def query_rfp(request: RFPRequest):
 
         # Build output with defaults
         output = RFPResponse(
+            user_query=request.user_query,
             answer=response.get("answer", ""),
             reasoning=response.get("reasoning", ""),
             extracted_requirements=response.get("extracted_requirements", []),
@@ -56,6 +58,28 @@ def ingest_pdfs():
     except Exception as e:
         logger.error(f"Ingestion failed: {e}", exc_info=True)
         raise HTTPException(status_code=400, detail=f"Failed to ingest PDFs: {str(e)}")
+
+
+@app.post("/eval_rfp")
+def eval_rfp(rag_response: RFPResponseSchema):
+    """
+    Endpoint to evaluate a RAG response using evaluate_rag_response.
+    Accepts a validated RAG response dict and returns evaluation results.
+    """
+    try:
+        from src.eval.eval_rag import evaluate_rag_response
+
+        # Convert Pydantic model to dict
+        rag_response_dict = rag_response.model_dump()
+        eval_result = evaluate_rag_response(rag_response_dict)
+
+        return {"evaluation": eval_result}
+
+    except Exception as e:
+        logger.error(f"RAG evaluation failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=400, detail=f"Failed to evaluate RAG response: {str(e)}"
+        )
 
 
 if __name__ == "__main__":

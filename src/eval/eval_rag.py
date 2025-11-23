@@ -4,6 +4,9 @@ from src.eval.utils import format_retrieved_document, extract_scores
 from langchain_core.messages import AIMessage, HumanMessage
 from src.common.logger import setup_logger
 from src.eval import prompts
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 log = setup_logger("eval_rag.log")
