@@ -16,7 +16,7 @@ def extract_scores(text: str) -> dict:
     result = {}
 
     for m in matches:
-        name = m.group("name").strip().lower()  # clarity, relevance, depth
+        name = m.group("name").strip().lower()
         score = int(m.group("score"))
         explanation = m.group("explanation").strip()
 
