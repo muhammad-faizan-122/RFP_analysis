@@ -36,7 +36,15 @@ pip install -r requirements.txt
 ```
 
 ---
-
+## **Add Following API keys in your .env file**
+- create .env file in root directory
+- add following variable with your API in this .env file
+```
+GOOGLE_API_KEY = ""
+JINA_API_KEY = ""
+```
+- For GOOGLE_API_KEY, refer [here](https://aistudio.google.com/api-keys)
+- For JINA_API_KEY, refer [here](https://jina.ai/).
 ## ▶️ **Run the API**
 
 ```bash
