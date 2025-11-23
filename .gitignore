@@ -1,0 +1,17 @@
+# Environment variables
+.env
+
+# Python cache
+*__pycache__/
+*.pyc
+
+# Vector Store - DO NOT COMMIT
+chroma_db/
+
+# Log files
+*log
+
+# private data
+data/
+
+build/
