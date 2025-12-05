@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from langchain_core.messages import HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
+from src.indexing import configs
 from src.indexing import prompt
 from dotenv import load_dotenv
 import re
@@ -26,11 +27,16 @@ llm = ChatGoogleGenerativeAI(
 )
 
 
-def extract_rfp_metadata(md_text: list[dict]) -> dict:
+def extract_rfp_metadata(md_text: list[dict], file_name: str) -> dict:
     structured_llm = llm.with_structured_output(RFPMetadata)
     message = prompt.EXTRACT_RFP_METADATA_PROMPT.format(first_page_content=md_text)
     rfp_metadata = structured_llm.invoke([HumanMessage(content=message)])
-    return rfp_metadata.model_dump()
+    rfp_metadata = rfp_metadata.model_dump()
+    if isinstance(rfp_metadata, dict):
+        rfp_metadata["file_name"] = file_name
+    else:
+        rfp_metadata = {"file_name": file_name}
+    return rfp_metadata
 
 
 def rm_markdown(md_text: str):
@@ -110,3 +116,33 @@ def split_by_headings(markdown_text: str) -> list[str]:
         sections.append(current_heading + "\n" + "\n".join(current_content))
 
     return sections
+
+
+def merge_shorter_sections(sections: list[str]):
+    """merge shorter heading to heading sections"""
+    merged_shorter_sections = []
+    prev_section = ""
+    for curr_section in sections:
+
+        if prev_section:
+            # update the current section by concatenate with prev section
+            curr_section = f"{prev_section}\n{curr_section}"
+
+        # if tokens shorter than thresh: update prev section with current
+        curr_tokens = len(curr_section.split())
+        if curr_tokens < configs.MIN_TOKENS:
+            prev_section = curr_section
+
+        # if tokens are normal just append it merge section
+        else:
+            merged_shorter_sections.append(curr_section)
+            prev_section = ""
+
+    # for last unmerge section or only one section which is shorter than required
+    if prev_section:
+        if merged_shorter_sections:
+            merged_shorter_sections[-1] += f"\n{prev_section}"
+        else:
+            merged_shorter_sections.append(prev_section)
+
+    return merged_shorter_sections

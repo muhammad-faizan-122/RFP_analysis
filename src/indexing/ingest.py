@@ -3,9 +3,10 @@ from src.indexing.utils import (
     get_pdf_markdown,
     rm_markdown,
     extract_rfp_metadata,
-    save_documents_to_json,
+    merge_shorter_sections,
 )
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_core.documents import Document
 from src.indexing import configs
 from langchain_core.documents import Document
 from langchain_community.vectorstores import Chroma
@@ -23,16 +24,11 @@ log = setup_logger("indexing.log")
 
 
 def chunk_h2h_sections(h2h_sections: list[str], file_name: str) -> list[Document]:
-    rfp_metadata = extract_rfp_metadata(h2h_sections[0])
-    if isinstance(rfp_metadata, dict):
-        rfp_metadata["file_name"] = file_name
-    else:
-        rfp_metadata = {"file_name": file_name}
-
+    rfp_metadata = extract_rfp_metadata(h2h_sections[0], file_name)
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=configs.CHUNK_SIZE,
         chunk_overlap=configs.CHUNK_OVERLAP,
-        separators=configs.SEPARATORS,
+        # separators=configs.SEPARATORS,
     )
 
     chunks = text_splitter.create_documents(h2h_sections)
@@ -42,13 +38,49 @@ def chunk_h2h_sections(h2h_sections: list[str], file_name: str) -> list[Document
     return chunks
 
 
+def create_finalize_chunks(sections: list[str], file_name):
+    """
+    1- check is any heading to heading section require furter chunking, if require do recurrsive charater for that particular section only.
+    2- add Metadata for each chunk
+    """
+    rfp_metadata = extract_rfp_metadata(sections[0], file_name)
+    final_chunks = []
+    for section in sections:
+        clean_section = rm_markdown(section)
+        section_tokens = len(clean_section.split())
+        if section_tokens > configs.CHUNK_SIZE:
+            sub_chunks = get_recurrsive_chunks(clean_section)
+            for sub_chunk in sub_chunks:
+                final_chunks.append(
+                    Document(page_content=sub_chunk, metadata=rfp_metadata.copy())
+                )
+        else:
+            final_chunks.append(
+                Document(page_content=clean_section, metadata=rfp_metadata.copy())
+            )
+    return final_chunks
+
+
+def get_recurrsive_chunks(text: str) -> list[str]:
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=configs.CHUNK_SIZE,
+        chunk_overlap=configs.CHUNK_OVERLAP,
+        separators=configs.SEPARATORS,
+    )
+    chunks = text_splitter.split_text(text)
+    return chunks
+
+
 def chunk_pdf(pdf_path: str) -> list:
     md_text = get_pdf_markdown(pdf_path)
     h2h_sections = split_by_headings(md_text)
     if not h2h_sections:
         log.warning(f"No headings found for {pdf_path}")
         return []
-    chunks = chunk_h2h_sections(h2h_sections, file_name=os.path.basename(pdf_path))
+    merged_sections = merge_shorter_sections(h2h_sections)
+    chunks = create_finalize_chunks(
+        merged_sections, file_name=os.path.basename(pdf_path)
+    )
     log.info(f"Total Chunks Created from {pdf_path}: {len(chunks)}")
     return chunks
 
