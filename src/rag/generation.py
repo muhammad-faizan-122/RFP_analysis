@@ -10,6 +10,7 @@ from src.common.utils import measure_time
 from abc import ABC, abstractmethod
 from langchain_core.messages import AIMessage, HumanMessage
 from typing import Dict, Any
+from src.rag.models import UserQueries
 
 load_dotenv()
 
@@ -74,13 +75,15 @@ class LcGeneration(Generation):
             formatted_context = ""
             filter_context = []
             is_filter_exists = self.is_any_metadata_filter_exists(metadata_filters)
-            for i, doc in enumerate(docs):
+            doc_i = 0
+            for doc in docs:
                 # check if either metadata matches or no filter exists
                 if (
                     self.is_any_metadata_match(doc.metadata, metadata_filters)
                     or not is_filter_exists
                 ):
-                    formatted_context += f"Document-{i+1}:\n{doc.page_content}\n\n"
+                    doc_i += 1
+                    formatted_context += f"Document-{doc_i}:\n{doc.page_content}\n\n"
                     filter_context.append(doc)
 
             # fallback case: if no documents matched, return top 2 docs
@@ -91,7 +94,7 @@ class LcGeneration(Generation):
                 filter_context = docs[:fallback_docs]
                 for i, doc in enumerate(docs[:fallback_docs]):
                     formatted_context += f"Document-{i+1}:\n{doc.page_content}\n\n"
-
+            log.debug(f"total source documents after filter: {len(filter_context)}")
             log.debug(f"Updated Document after merging metadata:\n{formatted_context}")
             return {
                 "formatted_context": formatted_context,
@@ -166,6 +169,32 @@ class LcGeneration(Generation):
             log.error(msg)
             raise ValueError(msg)
 
+    def breakdown_queries(self, query: str) -> list[str]:
+        """If user asked multiple queries in single queries, break down queries to improve the retrieved results"""
+        try:
+            structured_llm = self.llm.with_structured_output(UserQueries)
+            message = config.QUERY_BREAK_PROMPT.format(query=query)
+            response = structured_llm.invoke([HumanMessage(content=message)])
+            response_dict = response.model_dump()
+            log.debug(f"generated sub queries by LLM: {response_dict}")
+            queries = response_dict.get("queries", "")
+            queries = queries if queries else [query]
+            return queries
+        except Exception as e:
+            log.error(
+                f"failed to break down query, so going with original user query for retrieval"
+            )
+            return [query]
+
+    def deduplicate_docs(self, docs: list[Document]) -> list[Document]:
+        unique_docs = []
+        seen_content = set()
+        for doc in docs:
+            if doc.page_content not in seen_content:
+                unique_docs.append(doc)
+                seen_content.add(doc.page_content)
+        return unique_docs
+
     def generate_response(self, query: str, retriever, metadata: dict) -> str:
         """
         Creates and returns the main RAG chain. This chain:
@@ -182,29 +211,43 @@ class LcGeneration(Generation):
         Returns:
             A runnable RAG chain.
         """
+        with measure_time("break down user query", log):
+            # if user asked multiple queries in single request, breakdown into list of queries
+            queries = self.breakdown_queries(query)
+
+        def retrieve_for_multiple_queries(input_dict: dict) -> list[Document]:
+            # Get the list of queries from input, default to original input if missing
+            sub_queries = input_dict.get("sub_queries", [input_dict["input"]])
+
+            all_docs = []
+            log.debug(f"Retrieving documents for {len(sub_queries)} queries...")
+            for q in sub_queries:
+                docs = retriever.invoke(q)
+                all_docs.extend(docs)
+
+            # Deduplicate documents to avoid passing the same text twice to LLM
+            unique_docs = self.deduplicate_docs(all_docs)
+            log.debug(f"Total unique docs retrieved: {len(unique_docs)}")
+            return unique_docs
 
         with measure_time("retrieve relevant documents", log):
             retrieval_branch = RunnableParallel(
-                docs=itemgetter("input") | retriever,
+                docs=RunnableLambda(retrieve_for_multiple_queries),
                 metadata=itemgetter("metadata"),
-            ) | RunnableLambda(
-                self.format_retrieved_document
-            )  # 3. Receive dict with both
+            ) | RunnableLambda(self.format_retrieved_document)
 
         with measure_time("Augment & Generation Chain initialization", log):
             rag_chain = RunnableParallel(
-                # Get the dictionary (contains both string and docs)
                 retrieved_data=retrieval_branch,
-                # Pass input through
                 input=itemgetter("input"),
             ).assign(
-                # pull 'formatted_context' from the dictionary for the prompt
                 answer=(
                     {
                         "context": lambda x: x["retrieved_data"]["formatted_context"],
                         "input": itemgetter("input"),
                     }
                     | config.RAG_GENERATION_PROMPT
+                    | RunnableLambda(self._log_final_prompt)
                     | self.llm
                 )
             )
@@ -213,7 +256,13 @@ class LcGeneration(Generation):
             "RAG chain with document formatting and prompt inspection created successfully."
         )
         with measure_time("RAG answer generation", log):
-            response = rag_chain.invoke({"input": query, "metadata": metadata})
+            response = rag_chain.invoke(
+                {
+                    "input": query,
+                    "sub_queries": queries,
+                    "metadata": metadata,
+                }
+            )
         response = self.validate_and_process_rag_response(response)
         return (
             response

@@ -59,3 +59,8 @@ Document-index
 Relevance: Yes/No
 Reasoning: Why Relevant or not relevant?
 """
+
+QUERY_BREAK_PROMPT = """You are given RAG bot user query. If user asked multiple queries in single given query, you have to break all unique query in output. If there is only query, return empty list.
+<query>
+{query}
+</query>"""

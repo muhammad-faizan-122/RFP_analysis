@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 
 
@@ -18,3 +18,7 @@ class RFPResponse(BaseModel):
     answer: str = ""
     reasoning: str = ""
     extracted_requirements: List = []
+
+
+class UserQueries(BaseModel):
+    queries: List[str] = Field(description="list of all unique queries asked by user")
