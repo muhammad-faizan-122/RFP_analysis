@@ -28,7 +28,7 @@ def chunk_h2h_sections(h2h_sections: list[str], file_name: str) -> list[Document
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=configs.CHUNK_SIZE,
         chunk_overlap=configs.CHUNK_OVERLAP,
-        # separators=configs.SEPARATORS,
+        separators=configs.SEPARATORS,
     )
 
     chunks = text_splitter.create_documents(h2h_sections)
