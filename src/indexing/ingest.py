@@ -25,7 +25,8 @@ log = setup_logger("indexing.log")
 
 
 def chunk_h2h_sections(h2h_sections: list[str], file_name: str) -> list[Document]:
-    rfp_metadata = extract_rfp_metadata(h2h_sections[0], file_name)
+    # rfp_metadata = extract_rfp_metadata(h2h_sections[0], file_name)
+    rfp_metadata = {"file_name": file_name}
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=configs.CHUNK_SIZE,
         chunk_overlap=configs.CHUNK_OVERLAP,
@@ -44,7 +45,8 @@ def create_finalize_chunks(sections: list[str], file_name):
     1- check is any heading to heading section require furter chunking, if require do recurrsive charater for that particular section only.
     2- add Metadata for each chunk
     """
-    rfp_metadata = extract_rfp_metadata(sections[0], file_name)
+    # rfp_metadata = extract_rfp_metadata(sections[0], file_name)
+    rfp_metadata = {"file_name": file_name}
     final_chunks = []
     for section in sections:
         clean_section = rm_markdown(section)
