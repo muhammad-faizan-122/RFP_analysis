@@ -5,6 +5,7 @@ from src.indexing.utils import (
     extract_rfp_metadata,
     merge_shorter_sections,
     save_documents_to_json,
+    save_to_json,
 )
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
@@ -77,14 +78,16 @@ def get_recurrsive_chunks(text: str) -> list[str]:
 def chunk_pdf(pdf_path: str) -> list:
     md_text = get_pdf_markdown(pdf_path)
     h2h_sections = split_by_headings(md_text)
+    file_name = os.path.basename(pdf_path)
+    save_to_json(file_name=f"h22_{file_name}", data=h2h_sections)
+
     if not h2h_sections:
         log.warning(f"No headings found for {pdf_path}")
+        save_documents_to_json([], file_name)
         return []
     merged_sections = merge_shorter_sections(h2h_sections)
-    chunks = create_finalize_chunks(
-        merged_sections, file_name=os.path.basename(pdf_path)
-    )
-    save_documents_to_json(chunks, os.path.basename(pdf_path))
+    chunks = create_finalize_chunks(merged_sections, file_name=file_name)
+    save_documents_to_json(chunks, file_name)
     log.info(f"Total Chunks Created from {pdf_path}: {len(chunks)}")
     return chunks
 

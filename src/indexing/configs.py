@@ -1,5 +1,5 @@
 # chunking config
-MIN_TOKENS = 50
+MIN_TOKENS = 100
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 100
 SEPARATORS = ["#", "##", "###", "####", "####", "\n\n", "\n", "."]
