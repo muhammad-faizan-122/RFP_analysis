@@ -9,7 +9,7 @@ EMBEDDING_TYPE = "jina"
 
 # --- Retriever Configuration ---
 ENSEMBLE_RETRIEVER_WEIGHTS = [0.5, 0.5]  # [dense, sparse]
-DENSE_RETRIEVED_DOCUMENTS = 3
+DENSE_RETRIEVED_DOCUMENTS = 4
 SPARSE_RETRIEVED_DOCUMENTS = 3
 
 # --- LLM and Prompt Configuration ---
@@ -30,8 +30,9 @@ RAG_SYSTEM_PROMPT = (
     "You are a helpful assistant. Given RFP document similar for user's query, your task is to answer the user's query "
     "based *only* on these documents.\n"
     "Do NOT make up any answers. If the answer is not found in it, respond with: "
-    "'I cannot answer this based on the provided information.'\n\n"
-    "RFP document: {context}"
+    "'I cannot answer this based on the provided information.' "
+    "No need to mention about retrieved document in your final answer.\n\n"
+    "<rfp_documents>\n{context}\n<\rfp_documents>"
 )
 GENERAL_SYSTEM_PROMPT = """You're helpful assistant. Response User query very concisely and friendly.
 {user_query}"""

@@ -29,11 +29,13 @@ class ChromaRetriever(DenseRetriever):
     def __init__(self):
         super().__init__()
 
-    def get_retriever(self, vector_store):
+    def get_retriever(self, metadata, vector_store):
+        """TODO: For now metadata is only working for filename or single key-value. Need to fix for multiple."""
         retriever = vector_store.as_retriever(
             search_kwargs={
                 "k": config.DENSE_RETRIEVED_DOCUMENTS,
-            }
+                "filter": metadata,
+            },
         )
         return retriever
 
@@ -50,7 +52,7 @@ class Bm25Retriever(SparseRetriever):
         return retriever
 
 
-def create_ensemble_retriever() -> ChromaRetriever:
+def create_ensemble_retriever(metadata: dict) -> ChromaRetriever:
     """
     Creates and returns an EnsembleRetriever combining a dense and a sparse retriever.
 
@@ -64,7 +66,9 @@ def create_ensemble_retriever() -> ChromaRetriever:
     """
     # TODO: update sparse retriver
     # sparse_retriever = Bm25Retriever().get_retriever(documents=load_reviews_documents())
-    dense_retriever = ChromaRetriever().get_retriever(vector_store=load_vector_store())
+    dense_retriever = ChromaRetriever().get_retriever(
+        metadata, vector_store=load_vector_store()
+    )
 
     # ensemble_retriever = EnsembleRetriever(
     #     retrievers=[dense_retriever, sparse_retriever],

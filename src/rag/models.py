@@ -3,9 +3,9 @@ from typing import List, Optional
 
 
 class Metadata(BaseModel):
-    file_name: Optional[str] = ""
-    company: Optional[str] = ""
-    project: Optional[str] = ""
+    file_name: Optional[str]
+    # company: Optional[str]
+    # project: Optional[str]
 
 
 class RFPRequest(BaseModel):

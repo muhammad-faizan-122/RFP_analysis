@@ -4,6 +4,7 @@ from src.indexing.utils import (
     rm_markdown,
     extract_rfp_metadata,
     merge_shorter_sections,
+    save_documents_to_json,
 )
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
@@ -81,6 +82,7 @@ def chunk_pdf(pdf_path: str) -> list:
     chunks = create_finalize_chunks(
         merged_sections, file_name=os.path.basename(pdf_path)
     )
+    save_documents_to_json(chunks, os.path.basename(pdf_path))
     log.info(f"Total Chunks Created from {pdf_path}: {len(chunks)}")
     return chunks
 

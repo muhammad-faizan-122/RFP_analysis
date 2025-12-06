@@ -15,3 +15,5 @@ chroma_db/
 data/
 
 build/
+
+*.json

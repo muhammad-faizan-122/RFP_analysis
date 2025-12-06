@@ -8,6 +8,10 @@ import re
 import pymupdf4llm
 import strip_markdown
 import json
+from src.common.logger import setup_logger
+import os
+
+log = setup_logger("indexing.log")
 
 
 load_dotenv()
@@ -65,10 +69,29 @@ def is_heading(line: str) -> bool:
     return False
 
 
-def save_documents_to_json(documents: list, file_path: str = "./documents.json"):
-    """save documents to JSON for verification"""
-    with open(file_path, "w") as f:
-        json.dumps(documents, f, indent=4)
+def save_documents_to_json(documents, file_name, dir_path="src/indexing/chunks"):
+    """
+    Save a list of Document-like objects to a JSON file.
+
+    Args:
+        documents (list): List of objects with attributes 'page_content' and 'metadata'
+        file_name (str): Name of the output JSON file
+    """
+    # Convert each Document into a plain dict
+    json_list = []
+    for doc in documents:
+        json_list.append({"page_content": doc.page_content, "metadata": doc.metadata})
+    file_name = (
+        f"{os.path.splitext(file_name)[0]}.json"
+        if not file_name.endswith(".json")
+        else file_name
+    )
+    file_path = os.path.join(dir_path, file_name)
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(json_list, f, ensure_ascii=False, indent=4)
+
+    log.info(f"Saved {len(documents)} documents to {file_name}")
 
 
 def split_by_headings(markdown_text: str) -> list[str]:

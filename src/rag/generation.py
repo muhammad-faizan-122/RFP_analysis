@@ -54,9 +54,10 @@ class LcGeneration(Generation):
                 return True
         return False
 
-    def format_retrieved_document(
+    def format_retrieved_document_with_meta_filtering(
         self, inputs: Dict[str, Any], fallback_docs: int = 2
     ) -> str:
+        """This function format the retrieved documents and also post-retrieval filting, although pre-filter is already doing on the base of filename"""
         try:
             docs = inputs["docs"]
             if not docs:
@@ -65,9 +66,7 @@ class LcGeneration(Generation):
 
             metadata_filters = inputs["metadata"]
 
-            log.debug(
-                f"--- Raw Docs Retrieved: {len(docs)} - first doc value: {docs[0]}---"
-            )
+            log.debug(f"--- Raw Docs Retrieved: {len(docs)} - doc value: {docs}")
             log.debug(
                 f"--- Applying Filters: type: {type(metadata_filters)} - value: {metadata_filters} ---"
             )
@@ -94,13 +93,42 @@ class LcGeneration(Generation):
                 filter_context = docs[:fallback_docs]
                 for i, doc in enumerate(docs[:fallback_docs]):
                     formatted_context += f"Document-{i+1}:\n{doc.page_content}\n\n"
-            log.debug(f"total source documents after filter: {len(filter_context)}")
-            log.debug(f"Updated Document after merging metadata:\n{formatted_context}")
+            log.debug(f"total source documents: {len(filter_context)}")
+            log.debug(f"Formatted source Document:\n{formatted_context}")
             return {
                 "formatted_context": formatted_context,
                 "source_documents": filter_context,
             }
 
+        except Exception as e:
+            msg = f"Failed to format retrieved documents: {e}"
+            log.error(msg)
+            raise ValueError(msg)
+
+    def format_retrieved_document(
+        self, inputs: Dict[str, Any], fallback_docs: int = 2
+    ) -> str:
+        """This function format the retrieved documents"""
+        try:
+            docs = inputs["docs"]
+            if not docs:
+                log.warning("No documents retrieved.")
+                return {"formatted_context": "", "source_documents": []}
+
+            log.debug(f"--- Raw Docs Retrieved: {len(docs)} - doc value: {docs}")
+
+            formatted_context = ""
+            filter_context = []
+            for doc_i, doc in enumerate(docs):
+                formatted_context += f"Document-{doc_i+1}:\n{doc.page_content}\n\n"
+                filter_context.append(doc)
+
+            log.debug(f"total source documents: {len(filter_context)}")
+            log.debug(f"Formatted source Document:\n{formatted_context}")
+            return {
+                "formatted_context": formatted_context,
+                "source_documents": filter_context,
+            }
         except Exception as e:
             msg = f"Failed to format retrieved documents: {e}"
             log.error(msg)
@@ -216,19 +244,24 @@ class LcGeneration(Generation):
             queries = self.breakdown_queries(query)
 
         def retrieve_for_multiple_queries(input_dict: dict) -> list[Document]:
-            # Get the list of queries from input, default to original input if missing
-            sub_queries = input_dict.get("sub_queries", [input_dict["input"]])
-
-            all_docs = []
-            log.debug(f"Retrieving documents for {len(sub_queries)} queries...")
-            for q in sub_queries:
-                docs = retriever.invoke(q)
-                all_docs.extend(docs)
-
-            # Deduplicate documents to avoid passing the same text twice to LLM
-            unique_docs = self.deduplicate_docs(all_docs)
-            log.debug(f"Total unique docs retrieved: {len(unique_docs)}")
-            return unique_docs
+            try:
+                # Get the list of queries from input, default to original input if missing
+                sub_queries = input_dict.get("sub_queries", [input_dict["input"]])
+                all_docs = []
+                log.debug(f"Retrieving documents for {len(sub_queries)} queries...")
+                for q in sub_queries:
+                    docs = retriever.invoke(q)
+                    all_docs.extend(docs)
+                log.debug(f"All documents retrieved: {all_docs}")
+                # Deduplicate documents to avoid passing the same text twice to LLM
+                unique_docs = self.deduplicate_docs(all_docs)
+                log.debug(
+                    f"Total unique docs retrieved: {len(unique_docs)}\n{unique_docs}"
+                )
+                return unique_docs
+            except Exception as e:
+                log.error(f"failed to retrieved the relevant documents due to: {e}")
+                raise
 
         with measure_time("retrieve relevant documents", log):
             retrieval_branch = RunnableParallel(

@@ -28,6 +28,8 @@ def query_rfp(request: RFPRequest):
                 "metadata": request.metadata.model_dump(),
             }
         )
+        if not response:
+            raise HTTPException(status_code=400, detail="Failed to process query")
 
         # Build output with defaults
         output = RFPResponse(
@@ -40,9 +42,7 @@ def query_rfp(request: RFPRequest):
 
     except Exception as e:
         logger.error(f"Query failed: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=400, detail=f"Failed to process query: {str(e)}"
-        )
+        raise HTTPException(status_code=400, detail="Failed to process query")
 
 
 @app.post("/ingest", response_model=IngestResponse)
@@ -62,7 +62,7 @@ def ingest_pdfs():
 
     except Exception as e:
         logger.error(f"Ingestion failed: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail=f"Failed to ingest PDFs: {str(e)}")
+        raise HTTPException(status_code=400, detail="Failed to ingest PDFs")
 
 
 @app.post("/eval_rfp")
@@ -82,9 +82,7 @@ def eval_rfp(rag_response: RFPResponseSchema):
 
     except Exception as e:
         logger.error(f"RAG evaluation failed: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=400, detail=f"Failed to evaluate RAG response: {str(e)}"
-        )
+        raise HTTPException(status_code=400, detail="Failed to evaluate RAG response")
 
 
 if __name__ == "__main__":

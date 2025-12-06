@@ -27,15 +27,15 @@ class RfpRAGExecutor:
             return
 
         log.info("Initializing RAG pipeline...")
-        self.ensemble_retriever = create_ensemble_retriever()
         self.generator = LcGeneration()
         self._initialized = True
 
     def get_response(self, query: str, metadata: dict) -> str:
         try:
             log.info(f"Invoking RAG chain with query: '{query}'")
+            ensemble_retriever = create_ensemble_retriever(metadata)
             return self.generator.generate_response(
-                retriever=self.ensemble_retriever, query=query, metadata=metadata
+                retriever=ensemble_retriever, query=query, metadata=metadata
             )
         except Exception as e:
             log.error(f"Failed to get RAG response: {e}")
