@@ -6,6 +6,7 @@ from src.indexing.utils import (
     merge_shorter_sections,
     save_documents_to_json,
     save_to_json,
+    remove_repetitive_headers_footers,
 )
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
@@ -77,9 +78,10 @@ def get_recurrsive_chunks(text: str) -> list[str]:
 
 def chunk_pdf(pdf_path: str) -> list:
     md_text = get_pdf_markdown(pdf_path)
-    h2h_sections = split_by_headings(md_text)
+    cleaned_md_text = remove_repetitive_headers_footers(md_text)
+    h2h_sections = split_by_headings(cleaned_md_text)
     file_name = os.path.basename(pdf_path)
-    save_to_json(file_name=f"h22_{file_name}", data=h2h_sections)
+    save_to_json(file_name=f"h2h_{file_name}", data=h2h_sections)
 
     if not h2h_sections:
         log.warning(f"No headings found for {pdf_path}")

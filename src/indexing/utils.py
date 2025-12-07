@@ -8,12 +8,10 @@ import re
 import pymupdf4llm
 import strip_markdown
 import json
-from src.common.logger import setup_logger
 import os
+from src.common.logger import setup_logger
 
 log = setup_logger("indexing.log")
-
-
 load_dotenv()
 
 
@@ -265,3 +263,39 @@ def merge_shorter_sections(sections: list[str]):
             merged_shorter_sections.append(prev_section)
 
     return merged_shorter_sections
+
+
+def filter_header_footer(lines: list[str], line_counts: dict[str, int]):
+    # Filter out lines appearing more than threshold times
+    filtered_lines = []
+    for line in lines:
+        stripped = line.strip()
+        if line_counts.get(stripped, 0) <= configs.COUNT_THRESHOLD:
+            filtered_lines.append(line)
+    return "\n".join(filtered_lines)
+
+
+def get_line_counts(lines: list[str]):
+    """header footer are usually short in length, not more than `max_chars` threshold"""
+    line_counts = {}
+    for line in lines:
+        stripped = line.strip()
+        if stripped and len(stripped) < configs.MAX_CHARS:
+            line_counts[stripped] = line_counts.get(stripped, 0) + 1
+
+    log.debug(
+        f"top five line counts: {dict(sorted(line_counts.items(), key=lambda item: item[1], reverse=True)[:5])}"
+    )
+    return line_counts
+
+
+def remove_repetitive_headers_footers(md_text: str):
+    """Remove lines that appear repeatedly (likely headers/footers)."""
+    try:
+        lines = md_text.splitlines()
+        line_counts = get_line_counts(lines)
+        filtered_text = filter_header_footer(lines, line_counts)
+        return filtered_text
+    except Exception as e:
+        print(f"Failed to remove the header footer text due to: {e}")
+        return ""
