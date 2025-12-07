@@ -15,7 +15,7 @@ The system uses:
 ## 🚀 **Features**
 
 * Smart, RFP-aware question answering
-* Optional metadata filters (file, company, project)
+* Optional metadata filters (file name)
 * PDF ingestion with chunking → stored in ChromaDB
 * Structured JSON output with reasoning and confidence
 * Automatic evaluation pipeline
@@ -96,9 +96,7 @@ uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 {
   "user_query": "what will be the evaluation procedures?",
   "metadata": {
-    "file_name": "RFP3.pdf",
-    "company": "Edgemont Union Free School District",
-    "project": "Controlled Testing & Inspections for District Wide Additions & Alterations"
+    "file_name": "RFP3.pdf"
   }
 }
 ```
@@ -113,9 +111,7 @@ uvicorn app:app --host 0.0.0.0 --port 8000 --reload
   "extracted_requirements": [
     {
       "metadata": {
-        "company": "Edgemont Union Free School District",
         "file_name": "RFP3.pdf",
-        "project": "CONTROLLED TESTING & INSPECTIONS FOR DISTRICT WIDE ADDITIONS & ALTERATIONS"
       },
       "page_content": "...",
       "type": "Document"
@@ -131,7 +127,7 @@ uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 ```json
 {
   "user_query": "what will be the evaluation procedures?",
-  "metadata": { "file_name": "", "company": "", "project": "" }
+  "metadata": { "file_name": ""}
 }
 ```
 
@@ -153,7 +149,7 @@ uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 ```json
 {
   "user_query": "Hi, how are you doing today",
-  "metadata": { "file_name": "", "company": "", "project": "" }
+  "metadata": { "file_name": ""}
 }
 ```
 
